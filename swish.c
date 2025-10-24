@@ -59,6 +59,12 @@ int main(int argc, char **argv) {
         if (strcmp(first_token, "pwd") == 0) {
             // TODO Task 1: Print the shell's current working directory
             // Use the getcwd() system call
+            char cwd[CMD_LEN];
+            if (getcwd(cwd, CMD_LEN) == NULL) {
+                perror("getcwd");
+            } else {
+                fprintf(stderr, "%s\n", cwd);
+            }
         }
 
         else if (strcmp(first_token, "cd") == 0) {
@@ -67,6 +73,22 @@ int main(int argc, char **argv) {
             // If the user supplied an argument (token at index 1), change to that directory
             // Otherwise, change to the home directory by default
             // This is available in the HOME environment variable (use getenv())
+            const char *target_dir;
+            if (tokens.length > 1) {
+                target_dir = strvec_get(&tokens, 1);
+            } else {
+                target_dir = getenv("HOME");
+                if (target_dir == NULL) {
+                    fprintf(stderr, "cd: HOME environment variable not set\n");
+                    strvec_clear(&tokens);
+                    fprintf(stderr,"%s", PROMPT);
+                    continue;
+                }
+            }
+
+            if (chdir(target_dir) == -1) {
+                perror("chdir");
+            }
         }
 
         else if (strcmp(first_token, "exit") == 0) {
@@ -128,6 +150,13 @@ int main(int argc, char **argv) {
             //   2. Call run_command() in the child process
             //   2. In the parent, use waitpid() to wait for the program to exit
 
+            // Check if the last token is "&" for background execution
+            int is_background = 0;
+            if (tokens.length > 0 && strcmp(strvec_get(&tokens, tokens.length - 1), "&") == 0) {
+                is_background = 1;
+                strvec_take(&tokens, tokens.length - 1); // Remove the "&" token
+            }
+
             pid_t pid = fork();
 
             if (pid == -1) { //fork failed
@@ -137,19 +166,26 @@ int main(int argc, char **argv) {
                     return 1;
                 }
             } else { //parent process
-                int status;
-                if (tcsetpgrp(STDIN_FILENO, pid) == -1) { //set child process to foreground
-                    perror("tcsetpgrp");
-                }
-                if (waitpid(pid, &status, WUNTRACED) == -1) { //wait for child to finish
-                    perror("waitpid");
-                }
-                if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) { //reset shell to foreground
-                    perror("tcsetpgrp");
-                }
-                if (WIFSTOPPED(status)) {
+                if (is_background) {
+                    // Background job - add to jobs list and don't wait
                     char *job_name = strvec_get(&tokens, 0);
-                    job_list_add(&jobs, pid, job_name, STOPPED);
+                    job_list_add(&jobs, pid, job_name, BACKGROUND);
+                } else {
+                    // Foreground job - handle normally
+                    int status;
+                    if (tcsetpgrp(STDIN_FILENO, pid) == -1) { //set child process to foreground
+                        perror("tcsetpgrp");
+                    }
+                    if (waitpid(pid, &status, WUNTRACED) == -1) { //wait for child to finish
+                        perror("waitpid");
+                    }
+                    if (tcsetpgrp(STDIN_FILENO, getpid()) == -1) { //reset shell to foreground
+                        perror("tcsetpgrp");
+                    }
+                    if (WIFSTOPPED(status)) {
+                        char *job_name = strvec_get(&tokens, 0);
+                        job_list_add(&jobs, pid, job_name, STOPPED);
+                    }
                 }
             }
 

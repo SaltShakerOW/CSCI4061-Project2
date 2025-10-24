@@ -1,0 +1,5 @@
+*.o
+slow_write
+swish
+*.txt
+swish_shell_tests*
