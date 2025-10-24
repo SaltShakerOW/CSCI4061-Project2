@@ -68,19 +68,19 @@ int run_command(strvec_t *tokens) {
         return -1;
     }
 
-    pid_t pid = getpid();
+    pid_t pid = getpid(); //set groupid of process to process id
     if (setpgid(pid, pid) == -1) {
         perror("setpgid");
         return -1;
     }
 
-    // Handle redirection before building args array
+    // handle redirection before building args array
     int input_fd = -1, output_fd = -1;
     int input_redirect_pos  = strvec_find(tokens, "<");
     int output_redirect_pos = strvec_find(tokens, ">");
     int append_redirect_pos = strvec_find(tokens, ">>");
 
-    // Handle input redirection
+    //input redirection (<)
     if (input_redirect_pos != -1) {
         if (input_redirect_pos + 1 >= tokens->length) {
             fprintf(stderr, "Failed to open input file\n");
@@ -100,7 +100,7 @@ int run_command(strvec_t *tokens) {
         close(input_fd);
     }
 
-    // Handle output redirection (>)
+    // output redirection (>)
     if (output_redirect_pos != -1) {
         if (output_redirect_pos + 1 >= tokens->length) {
             fprintf(stderr, "Failed to open output file\n");
@@ -120,7 +120,7 @@ int run_command(strvec_t *tokens) {
         close(output_fd);
     }
 
-    // Handle append redirection (>>)
+    //append redirection (>>)
     if (append_redirect_pos != -1) {
         if (append_redirect_pos + 1 >= tokens->length) {
             fprintf(stderr, "Failed to open output file\n");
@@ -140,15 +140,14 @@ int run_command(strvec_t *tokens) {
         close(output_fd);
     }
 
-    // Build args array, excluding redirection operators and their operands
+    //build args array
     char *args[MAX_ARGS + 1];
     int arg_count = 0;
 
     for (int i = 0; i < tokens->length; i++) {
         const char *token = strvec_get(tokens, i);
         if (strcmp(token, "<") == 0 || strcmp(token, ">") == 0 || strcmp(token, ">>") == 0) {
-            // Skip redirection operator and its operand
-            i++; // Skip the filename operand
+            i++;
             continue;
         }
         if (arg_count >= MAX_ARGS) {
@@ -159,7 +158,7 @@ int run_command(strvec_t *tokens) {
         arg_count++;
     }
 
-    args[arg_count] = NULL; // Null sentinel
+    args[arg_count] = NULL; // NULL sentinel
 
     execvp(args[0], args); // run the command
 
@@ -196,13 +195,15 @@ int resume_job(strvec_t *tokens, job_list_t *jobs, int is_foreground) {
     // 5. If the job has terminated (not stopped), remove it from the 'jobs' list
     // 6. Call tcsetpgrp(STDIN_FILENO, <shell_pid>). shell_pid is the *current*
     //    process's pid, since we call this function from the main shell process
+
+    //NOTE TO SELF: system calls -> perror, regular stuff -> fprintf
     if (tokens->length < 2) { //check for enough tokens
         fprintf(stderr, "Job index out of bounds\n");
         return -1;
     }
     int index = atoi(strvec_get(tokens, 1)); //grab the job index from str vector
 
-    job_t *job = job_list_get(jobs, index); // Get the job information
+    job_t *job = job_list_get(jobs, index); // get the job information
     if (job == NULL) {
         fprintf(stderr, "Job index out of bounds\n");
         return -1;
@@ -315,7 +316,7 @@ int await_all_background_jobs(job_list_t *jobs) {
         current = current->next;
     }
 
-    // Remove all terminated background jobs
+    // remove all terminated background jobs
     job_list_remove_by_status(jobs, BACKGROUND);
 
     return 0;

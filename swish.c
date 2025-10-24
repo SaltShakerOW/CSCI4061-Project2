@@ -150,11 +150,11 @@ int main(int argc, char **argv) {
             //   2. Call run_command() in the child process
             //   2. In the parent, use waitpid() to wait for the program to exit
 
-            // Check if the last token is "&" for background execution
+            // check if the last token is "&" for background execution
             int is_background = 0;
             if (tokens.length > 0 && strcmp(strvec_get(&tokens, tokens.length - 1), "&") == 0) {
                 is_background = 1;
-                strvec_take(&tokens, tokens.length - 1); // Remove the "&" token
+                strvec_take(&tokens, tokens.length - 1); // remove the "&" token
             }
 
             pid_t pid = fork();
@@ -167,11 +167,11 @@ int main(int argc, char **argv) {
                 }
             } else { //parent process
                 if (is_background) {
-                    // Background job - add to jobs list and don't wait
+                    // background job
                     char *job_name = strvec_get(&tokens, 0);
                     job_list_add(&jobs, pid, job_name, BACKGROUND);
                 } else {
-                    // Foreground job - handle normally
+                    // Foreground job
                     int status;
                     if (tcsetpgrp(STDIN_FILENO, pid) == -1) { //set child process to foreground
                         perror("tcsetpgrp");
